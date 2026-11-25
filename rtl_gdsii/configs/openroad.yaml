@@ -1,0 +1,21 @@
+# Linux workstation integration settings. Paths are supplied by the deployment
+# environment; this repository does not vendor ORFS or technology files.
+enabled: true
+executable: openroad
+orfs_home_env: ORFS_HOME
+orfs_repository: https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts.git
+# Immutable ORFS commit tested for the official nangate45/gcd flow. Update this
+# only after rerunning the Linux verification commands and recording results.
+orfs_revision: 8b8d340
+flow_directory: flow
+design_config: flow/designs/nangate45/gcd/config.mk
+platform: nangate45
+design: gcd
+expected_gds: flow/results/nangate45/gcd/base/6_final.gds
+timeout_seconds: 1800
+artifact_dir: artifacts/openroad-gcd
+real_verification: pending
+
+# ORFS supplies the Nangate45 platform, RTL source, constraints, and flow
+# scripts. The checked-in benchmarks/gcd files are synthetic/unit-test inputs;
+# they are not substituted for the official ORFS benchmark during verification.

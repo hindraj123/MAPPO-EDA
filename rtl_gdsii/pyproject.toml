@@ -1,0 +1,27 @@
+[project]
+name = "mappo-eda"
+version = "0.1.0"
+description = "Cooperative MAPPO research framework for OpenROAD RTL-to-GDSII optimization"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy>=2.0",
+  "torch>=2.4",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=8.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+markers = ["real_openroad: requires a real OpenROAD executable and technology files"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mappo_eda"]

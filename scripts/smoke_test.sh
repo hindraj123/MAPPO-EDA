@@ -28,4 +28,4 @@ trap 'rm -rf "$tmp_dir"' EXIT
 PYTHONPATH=src "${runner[@]}" train.py --synthetic --config configs/training.yaml --run-dir "$tmp_dir/run" --updates 1 --steps 2 --device cpu
 test -f "$tmp_dir/run/checkpoint-00001.pt"
 PYTHONPATH=src "${runner[@]}" evaluate.py "$tmp_dir/run/checkpoint-00001.pt" >/dev/null
-echo "Synthetic CPU smoke test passed; real OpenROAD verification remains pending."
+echo "Synthetic CPU smoke test passed; it does not verify real OpenROAD training."

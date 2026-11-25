@@ -4,6 +4,7 @@ device: cpu
 updates: 2
 rollout_steps: 8
 rollout_workers: 4
+openroad_threads: 2
 episodes_per_worker: 1
 learning_rate: 0.0003
 ppo_clip: 0.2

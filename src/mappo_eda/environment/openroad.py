@@ -50,8 +50,11 @@ class OpenROADCommandRunner:
     know where OpenROAD-flow-scripts is installed.
     """
 
-    def __init__(self, executable: str = "openroad") -> None:
+    def __init__(self, executable: str = "openroad", *, threads: int | None = None) -> None:
+        if threads is not None and threads <= 0:
+            raise ValueError("threads must be positive")
         self.executable = executable
+        self.threads = threads
 
     def resolve(self) -> str:
         candidate = Path(self.executable)
@@ -108,7 +111,7 @@ class OpenROADCommandRunner:
             script_path = Path(temporary_directory.name) / "commands.tcl"
             script_path.write_text("\n".join(commands) + "\n", encoding="utf-8")
 
-        command = (executable, "-no_init", "-exit", "-file", str(script_path))
+        command = (executable, "-no_init", "-exit", *(("-threads", str(self.threads)) if self.threads is not None else ()), str(script_path))
         process_environment = os.environ.copy()
         if environment is not None:
             process_environment.update({str(k): str(v) for k, v in environment.items()})

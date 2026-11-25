@@ -21,7 +21,7 @@ class OpenROADWorkerFactory:
     def __call__(self, worker_id: int, workdir: Path):
         cfg, exp = self.config, self.experiment
         env = OpenROADEnvironment(
-            design=str(exp['design']), runner=OpenROADCommandRunner(str(cfg.get('openroad_executable', 'openroad'))),
+            design=str(exp['design']), runner=OpenROADCommandRunner(str(cfg.get('openroad_executable', 'openroad')), threads=int(cfg.get('openroad_threads', 2))),
             workdir=workdir, stage_scripts=exp['stage_scripts'], initialization_script=exp['initialization_script'],
             extraction_script=exp['extraction_script'], stage_actions=exp['stage_actions'],
             reward_scales=exp['reward_scales'], reward_directions=exp['reward_directions'],

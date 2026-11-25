@@ -56,6 +56,15 @@ def test_synthetic_runner_captures_output_and_logs(tmp_path: Path):
     assert (tmp_path / "logs" / "openroad.stdout.log").read_text(encoding="utf-8") == result.stdout
 
 
+def test_runner_sets_requested_thread_limit(tmp_path: Path):
+    executable = _synthetic_openroad(tmp_path)
+    result = OpenROADCommandRunner(str(executable), threads=2).run(commands=["puts synthetic"])
+    assert result.succeeded
+    assert result.command[1:5] == ("-no_init", "-exit", "-threads", "2")
+    with pytest.raises(ValueError):
+        OpenROADCommandRunner(str(executable), threads=0)
+
+
 def test_metric_parser_preserves_only_emitted_values():
     metrics = PhysicalDesignMetrics.from_text(
         "noise\nMAPP0EDA_METRIC area_um2 12.5\nMAPP0EDA_METRIC instance_count 17\n"
@@ -128,6 +137,26 @@ def test_real_openroad_executes_tcl_when_available(tmp_path: Path):
     result = OpenROADCommandRunner(executable).run(script=script, cwd=tmp_path)
     assert result.succeeded, result.stderr
     assert "MAPP0EDA_REAL_OPENROAD_SMOKE" in result.stdout
+
+
+@pytest.mark.real_openroad
+def test_real_gcd_database_metric_extraction(tmp_path: Path):
+    executable = shutil.which("openroad")
+    orfs_home = os.environ.get("ORFS_HOME")
+    if not executable or not orfs_home:
+        pytest.skip("requires OpenROAD and a completed ORFS GCD flow")
+    flow = Path(orfs_home) / "flow"
+    odb = flow / "results/nangate45/gcd/base/6_final.odb"
+    if not odb.is_file():
+        pytest.skip("completed GCD database is unavailable")
+    extractor = Path(__file__).resolve().parents[1] / "scripts/openroad/extract_metrics.tcl"
+    script = tmp_path / "extract.tcl"
+    script.write_text('set_thread_count 2\nread_db $::env(MAPPO_TEST_ODB)\nsource $::env(MAPPO_TEST_EXTRACT)\n')
+    result = OpenROADCommandRunner(executable).run(script=script, cwd=tmp_path, environment={"MAPPO_TEST_ODB": str(odb), "MAPPO_TEST_EXTRACT": str(extractor)})
+    assert result.succeeded, result.stderr
+    metrics = PhysicalDesignMetrics.from_text(result.stdout)
+    assert metrics["die_width_um"] > 0 and metrics["die_height_um"] > 0
+    assert metrics["instance_count"] > 0 and metrics["net_count"] > 0
 
 
 @pytest.mark.skipif(shutil.which("openroad") is None, reason="real OpenROAD executable is not installed")

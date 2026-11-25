@@ -48,13 +48,13 @@ class OpenROADRunner:
         args = [self.resolve(), "-exit"]
         temporary_script: str | None = None
         if script is not None:
-            args.extend(["-file", str(script)])
+            args.append(str(script))
         elif commands:
             handle = tempfile.NamedTemporaryFile("w", suffix=".tcl", delete=False, encoding="utf-8")
             temporary_script = handle.name
             with handle:
                 handle.write("\n".join(commands) + "\n")
-            args.extend(["-no_init", "-file", temporary_script])
+            args.extend(["-no_init", temporary_script])
         try:
             completed = subprocess.run(
                 args, cwd=cwd, capture_output=True, text=True, timeout=timeout_s, check=False

@@ -15,8 +15,8 @@ if {$block eq ""} {
 
 set dbu [$block getDbUnitsPerMicron]
 set bbox [$block getBBox]
-mappo_emit_metric die_width_um [expr {double([$bbox dx]) / $dbu}]
-mappo_emit_metric die_height_um [expr {double([$bbox dy]) / $dbu}]
+mappo_emit_metric die_width_um [expr {double([$bbox xMax] - [$bbox xMin]) / $dbu}]
+mappo_emit_metric die_height_um [expr {double([$bbox yMax] - [$bbox yMin]) / $dbu}]
 mappo_emit_metric instance_count [llength [$block getInsts]]
 mappo_emit_metric net_count [llength [$block getNets]]
 

@@ -12,7 +12,10 @@ def masked_mean(value: Tensor, mask: Tensor | None = None) -> Tensor:
 def ppo_loss(new_log_probs, old_log_probs, advantages, clip=.2, mask=None, normalize_advantages=True):
     if clip <= 0: raise ValueError("clip must be positive")
     if not (new_log_probs.shape == old_log_probs.shape == advantages.shape): raise ValueError("PPO tensors must have equal shapes")
-    if normalize_advantages:
+    # A single valid sample has zero variance; centering it would erase its
+    # entire policy gradient. Keep its unnormalized advantage instead.
+    valid_count = advantages.numel() if mask is None else int(torch.broadcast_to(mask.to(advantages.device, torch.bool), advantages.shape).sum().item())
+    if normalize_advantages and valid_count > 1:
         if mask is None: mean, scale = advantages.mean(), advantages.std(unbiased=False).clamp_min(1e-8)
         else:
             w = torch.broadcast_to(mask.to(advantages.device, advantages.dtype), advantages.shape); n = w.sum().clamp_min(1)

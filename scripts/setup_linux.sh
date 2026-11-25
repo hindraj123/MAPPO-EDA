@@ -60,26 +60,14 @@ else
   missing=1
 fi
 
-if command -v uv >/dev/null 2>&1; then
-  uv sync --dev
-else
-  echo "Install uv from https://docs.astral.sh/uv/ before running uv sync."
-fi
-
 if [[ "$missing" -ne 0 ]]; then
   cat <<'EOF'
 
-Some tools are missing. An administrator may install Ubuntu prerequisites with:
-  sudo apt-get update
-  sudo apt-get install -y build-essential git make python3 python3-venv tcl yosys klayout
-
-Install OpenROAD/ORFS and NVIDIA CUDA drivers using their official Linux
-instructions. This script deliberately does not run sudo or install packages.
-Clone the pinned ORFS revision with:
-  git clone --recursive https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts.git "$HOME/OpenROAD-flow-scripts"
-  git -C "$HOME/OpenROAD-flow-scripts" checkout 8b8d340
-  git -C "$HOME/OpenROAD-flow-scripts" submodule update --init --recursive
-  export ORFS_HOME="$HOME/OpenROAD-flow-scripts"
+Some prerequisites are not visible in this session. Check the active PATH and
+ORFS_HOME; sandbox restrictions may hide tools or GPU devices available on the
+host. This script does not install packages, change the Python environment, or
+modify the NVIDIA driver. Request explicit approval before any privileged
+installation or system-wide change.
 EOF
   exit 2
 fi

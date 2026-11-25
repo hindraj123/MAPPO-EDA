@@ -10,7 +10,7 @@ if [[ -z "$orfs_home" || ! -d "$orfs_home/flow" ]]; then
   echo "ERROR: set ORFS_HOME to an ORFS checkout containing flow/" >&2
   exit 2
 fi
-if [[ ! -d "$orfs_home/.git" ]]; then
+if ! git -C "$orfs_home" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   echo "ERROR: ORFS_HOME must be a git checkout so the revision can be verified" >&2
   exit 2
 fi
@@ -29,12 +29,39 @@ fi
 
 echo "ORFS revision: $actual_revision"
 echo "Running official Nangate45/GCD configuration from: $config"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+mkdir -p "$repo_root/artifacts"
+run_dir="$(mktemp -d "$repo_root/artifacts/orfs-gcd-XXXXXXXX")"
+marker="$run_dir/started"
+touch "$marker"
+{
+  echo "ORFS revision: $(git -C "$orfs_home" rev-parse HEAD)"
+  git -C "$orfs_home" status --short
+  for tool in openroad yosys klayout; do
+    if command -v "$tool" >/dev/null 2>&1; then
+      printf '%s: ' "$tool"
+      case "$tool" in
+        yosys) "$tool" -V 2>&1 | head -n 1 || true ;;
+        klayout) "$tool" -v 2>&1 | head -n 1 || true ;;
+        *) "$tool" -version 2>&1 | head -n 1 || true ;;
+      esac
+    else
+      printf '%s: not on PATH\n' "$tool"
+    fi
+  done
+} > "$run_dir/toolchain.txt"
+echo "Run logs: $run_dir"
 cd "$orfs_home/flow"
-make DESIGN_CONFIG=./designs/nangate45/gcd/config.mk
+make DESIGN_CONFIG=./designs/nangate45/gcd/config.mk 2>&1 | tee "$run_dir/flow.log"
 
 gds="$orfs_home/flow/results/nangate45/gcd/base/6_final.gds"
 if [[ ! -s "$gds" ]]; then
   echo "ERROR: expected GDSII artifact was not produced: $gds" >&2
   exit 1
 fi
+if [[ ! "$gds" -nt "$marker" ]]; then
+  echo "ERROR: GDSII predates this run; existing output alone does not verify a fresh flow: $gds" >&2
+  exit 1
+fi
+sha256sum "$gds" > "$run_dir/gds.sha256"
 echo "GDSII verified present: $gds"

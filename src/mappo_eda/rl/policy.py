@@ -27,30 +27,30 @@ class StageActor(nn.Module):
         self.fusion = MultiViewFusion(hidden_dim, hidden_dim)
         self.policy = nn.Linear(hidden_dim, action_dim)
 
-    def encode(self, nodes, edges, image, scalars, node_mask=None):
+    def encode(self, nodes, edges, image, scalars, node_mask=None, view_mask=None, scalar_mask=None):
         encoded = self.graph(nodes, edges, node_mask)
-        if encoded.ndim == 2:
-            graph = encoded.mean(0)
-        elif node_mask is None:
-            graph = encoded.mean(1)
+        if node_mask is None:
+            graph = encoded.mean(-2)
         else:
             weights = torch.broadcast_to(node_mask.to(encoded.device, encoded.dtype), encoded.shape[:-1])
-            graph = (encoded * weights.unsqueeze(-1)).sum(1) / weights.sum(1, keepdim=True).clamp_min(1)
-        return self.fusion(graph, self.image(image), self.scalar(scalars))
+            graph = (encoded * weights.unsqueeze(-1)).sum(-2) / weights.sum(-1, keepdim=True).clamp_min(1)
+        if scalar_mask is not None:
+            scalars = torch.where(scalar_mask.to(device=scalars.device, dtype=torch.bool), scalars, torch.zeros_like(scalars))
+        return self.fusion(graph, self.image(image), self.scalar(scalars), view_mask)
 
-    def forward(self, nodes, edges, image, scalars, action_mask=None, node_mask=None):
-        return _mask_logits(self.policy(self.encode(nodes, edges, image, scalars, node_mask)), action_mask)
+    def forward(self, nodes, edges, image, scalars, action_mask=None, node_mask=None, view_mask=None, scalar_mask=None):
+        return _mask_logits(self.policy(self.encode(nodes, edges, image, scalars, node_mask, view_mask, scalar_mask)), action_mask)
 
-    def distribution(self, nodes, edges, image, scalars, action_mask=None, node_mask=None):
-        return Categorical(logits=self(nodes, edges, image, scalars, action_mask, node_mask))
+    def distribution(self, nodes, edges, image, scalars, action_mask=None, node_mask=None, view_mask=None, scalar_mask=None):
+        return Categorical(logits=self(nodes, edges, image, scalars, action_mask, node_mask, view_mask, scalar_mask))
 
-    def act(self, nodes, edges, image, scalars, action_mask=None, node_mask=None, deterministic=False):
-        dist = self.distribution(nodes, edges, image, scalars, action_mask, node_mask)
+    def act(self, nodes, edges, image, scalars, action_mask=None, node_mask=None, deterministic=False, view_mask=None, scalar_mask=None):
+        dist = self.distribution(nodes, edges, image, scalars, action_mask, node_mask, view_mask, scalar_mask)
         actions = dist.probs.argmax(-1) if deterministic else dist.sample()
         return actions, dist.log_prob(actions), dist.entropy()
 
-    def evaluate_actions(self, nodes, edges, image, scalars, actions, action_mask=None, node_mask=None):
-        dist = self.distribution(nodes, edges, image, scalars, action_mask, node_mask)
+    def evaluate_actions(self, nodes, edges, image, scalars, actions, action_mask=None, node_mask=None, view_mask=None, scalar_mask=None):
+        dist = self.distribution(nodes, edges, image, scalars, action_mask, node_mask, view_mask, scalar_mask)
         return dist.log_prob(actions), dist.entropy()
 
 

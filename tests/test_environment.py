@@ -85,7 +85,7 @@ def test_synthetic_stage_action_is_applied_to_openroad_process(tmp_path: Path):
     result = env.run_stage(PhysicalDesignStage.FLOORPLANNING, action=1)
     assert result.succeeded
     assert "action=1" in result.result.stdout
-    assert (env.workdir / "logs" / "openroad.stdout.log").is_file()
+    assert (env.workdir / "logs" / "floorplanning" / "openroad.stdout.log").is_file()
 
 
 def test_synthetic_four_stage_transition_reaches_terminal(tmp_path: Path):
@@ -100,6 +100,7 @@ def test_synthetic_four_stage_transition_reaches_terminal(tmp_path: Path):
     assert step.terminated
     assert len(set(workdirs)) == 1
     assert env.action_masks()["routing"] == [False, False, False]
+    assert all((env.workdir / "logs" / stage.value / "openroad.stdout.log").is_file() for stage in PhysicalDesignStage)
 
 
 def test_reset_allocates_an_isolated_episode_directory(tmp_path: Path):
@@ -143,3 +144,21 @@ def test_policy_inputs_are_numpy_and_metrics_are_only_emitted_values(tmp_path: P
     assert all(isinstance(value, np.ndarray) for value in policy_inputs.values())
     assert step.observation.measured_metrics == {"area_um2": 10.0, "wns_ns": 1.0}
     assert "instance_count" not in step.observation.measured_metrics
+
+
+def test_required_metrics_reject_empty_success(tmp_path: Path):
+    env = _environment(tmp_path)
+    env.require_metrics = True
+    executable = Path(env.runner.executable)
+    executable.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    step = env.step(0)
+    assert step.terminated and not step.info["succeeded"]
+    assert "no metric records" in step.info["error"]
+
+
+def test_required_environment_is_enforced_before_running(tmp_path: Path):
+    env = _environment(tmp_path)
+    env.required_environment = ("MAPPO_EDA_TEST_MISSING_DEPLOYMENT_INPUT",)
+    step = env.step(0)
+    assert step.terminated and not step.info["succeeded"]
+    assert "MAPPO_EDA_TEST_MISSING_DEPLOYMENT_INPUT" in step.info["error"]

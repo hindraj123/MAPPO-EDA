@@ -42,7 +42,11 @@ class ToolchainStatus:
 
 @dataclass(frozen=True)
 class StageObservation:
-    """CPU-friendly, fixed-shape GNN/CNN/MLP views for one stage agent."""
+    """CPU-friendly metric-derived views for one stage agent.
+
+    The nodes and image are encodings of available scalar metrics, not an
+    extracted netlist graph or a spatial congestion map.
+    """
 
     stage: PhysicalDesignStage
     nodes: np.ndarray
@@ -126,10 +130,14 @@ class OpenROADEnvironment:
         scalar_dim: int = 8,
         image_channels: int = 1,
         image_size: int = 8,
+        global_dim: int | None = None,
+        require_metrics: bool = False,
         keep_workdirs: bool = True,
     ) -> None:
-        if node_dim < 4 or scalar_dim < 8 or image_channels != 1 or image_size <= 0:
-            raise ValueError("observation dimensions must be node_dim>=4, scalar_dim>=8, image_channels=1")
+        if node_dim < 4 or scalar_dim < 8 or image_channels != 1 or image_size <= 0 or image_size * image_size < len(_METRIC_NAMES):
+            raise ValueError("observation dimensions must be node_dim>=4, scalar_dim>=8, image_channels=1, and image_size**2>=8")
+        if global_dim is not None and global_dim < scalar_dim + len(_METRIC_NAMES):
+            raise ValueError("global_dim must accommodate scalars and all metric slots")
         self.design = design
         self.runner = runner
         self.base_workdir = Path(workdir).resolve()
@@ -146,6 +154,8 @@ class OpenROADEnvironment:
         self.stage_actions = normalize_stage_actions(stage_actions, action_dim=action_dim)
         self.node_dim, self.scalar_dim, self.image_size = node_dim, scalar_dim, image_size
         self.image_channels = image_channels
+        self.global_dim = global_dim or max(16, scalar_dim + len(_METRIC_NAMES))
+        self.require_metrics = require_metrics
         self.keep_workdirs = keep_workdirs
         self.progression = StageProgression()
         self.previous_metrics: PhysicalDesignMetrics | None = None
@@ -235,7 +245,7 @@ class OpenROADEnvironment:
         scalars = np.zeros(self.scalar_dim, dtype=np.float32)
         scalars[STAGE_ORDER.index(selected)] = 1.0
         scalars[4:8] = (STAGE_ORDER.index(selected) / 3.0, float(self.terminated), float(self.status == EnvironmentStatus.FAILED), sum(presence.values()) / len(_METRIC_NAMES))
-        global_state = np.zeros(max(16, self.scalar_dim * 2), dtype=np.float32)
+        global_state = np.zeros(self.global_dim, dtype=np.float32)
         global_state[: self.scalar_dim] = scalars
         for index, name in enumerate(_METRIC_NAMES):
             if presence[name]:
@@ -263,7 +273,10 @@ class OpenROADEnvironment:
         env = {str(k): str(v) for k, v in (environment or {}).items()}
         env.update(spec.environment)
         env.update({"MAPPO_EDA_DESIGN": self.design, "MAPPO_EDA_STAGE": normalized.value, "MAPPO_EDA_ACTION_INDEX": str(action), "MAPPO_EDA_WORKDIR": str(self.episode_workdir)})
-        output_dir = Path(log_dir) if log_dir else self.episode_workdir / "logs"
+        missing = [name for name in self.required_environment if not env.get(name, os.environ.get(name))]
+        if missing:
+            return self._failure(normalized, action, "missing OpenROAD deployment inputs: " + ", ".join(missing))
+        output_dir = Path(log_dir) if log_dir else self.episode_workdir / "logs" / normalized.value
         try:
             combined = self._compose_scripts(selected_stage, selected_extract, spec)
         except OSError as exc:
@@ -275,12 +288,14 @@ class OpenROADEnvironment:
             return self._failure(normalized, action, str(exc))
         finally:
             combined.unlink(missing_ok=True)
+        if not result.succeeded:
+            return self._failure(normalized, action, result.stderr.strip() or f"OpenROAD exited with {result.returncode}", result=result)
         try:
             metrics = PhysicalDesignMetrics.from_text(result.stdout)
         except MetricParseError as exc:
             return self._failure(normalized, action, f"metric extraction failed: {exc}", result=result)
-        if not result.succeeded:
-            return self._failure(normalized, action, result.stderr.strip() or f"OpenROAD exited with {result.returncode}", result=result, metrics=metrics)
+        if self.require_metrics and not metrics:
+            return self._failure(normalized, action, "OpenROAD produced no metric records", result=result)
         reward_inputs = build_reward_inputs(normalized, metrics, self.previous_metrics, self.reward_scales, self.reward_directions) if metrics else None
         self.progression.record_success(normalized)
         self.previous_metrics = metrics if metrics else self.previous_metrics
@@ -295,7 +310,7 @@ class OpenROADEnvironment:
             raise RuntimeError("cannot step a terminated environment; call reset()")
         run = self.run_stage(stage, action=action, timeout_s=timeout_s, environment=environment)
         reward = float(sum(run.reward_inputs.normalized_deltas.values())) if run.reward_inputs else 0.0
-        info = {"stage": stage.value, "action": action, "metrics": run.metrics.to_dict(), "succeeded": run.succeeded, "error": run.error, "workdir": str(self.workdir), "real_tool_verified": False}
+        info = {"stage": stage.value, "action": action, "metrics": run.metrics.to_dict(), "reward_inputs": run.reward_inputs.to_dict() if run.reward_inputs else None, "succeeded": run.succeeded, "error": run.error, "workdir": str(self.workdir), "duration_s": run.result.duration_s, "real_tool_verified": False}
         return EnvironmentStep(self.observation(), reward, self.terminated, False, info, run)
 
     def _action_spec(self, stage: PhysicalDesignStage, action: int) -> StageActionSpec:

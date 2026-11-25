@@ -9,9 +9,9 @@ def build_policy(config: dict[str, Any], device: str | torch.device = "cpu") -> 
     return policy
 
 def deterministic_rollout(policy: MAPPOPolicy, config: dict[str, Any], seed: int, baseline: str | None = None) -> dict[str, Any]:
-    generator = torch.Generator(device="cpu").manual_seed(seed); device = next(policy.parameters()).device; total = 0.0; actions = []
+    generator = torch.Generator(device="cpu").manual_seed(seed); device = next(policy.parameters()).device; tensor_generator = torch.Generator(device=device).manual_seed(seed); total = 0.0; actions = []
     for index, stage in enumerate(MAPPOPolicy.STAGES):
-        nodes = torch.randn(1, 5, int(config["node_dim"]), generator=generator, device=device); image = torch.randn(1, int(config["image_channels"]), 8, 8, generator=generator, device=device); scalars = torch.randn(1, int(config["scalar_dim"]), generator=generator, device=device); edges = torch.tensor([[0, 1, 2, 3], [1, 2, 3, 4]], device=device)
+        nodes = torch.randn(1, 5, int(config["node_dim"]), generator=tensor_generator, device=device); image = torch.randn(1, int(config["image_channels"]), 8, 8, generator=tensor_generator, device=device); scalars = torch.randn(1, int(config["scalar_dim"]), generator=tensor_generator, device=device); edges = torch.tensor([[0, 1, 2, 3], [1, 2, 3, 4]], device=device)
         mask = torch.zeros(1, int(config["action_dim"]), dtype=torch.bool, device=device); mask[:, :max(1, int(config["action_dim"])-index)] = True
         if baseline == "first_valid": action = torch.zeros(1, dtype=torch.long, device=device)
         elif baseline == "last_valid": action = mask.sum(1).long() - 1

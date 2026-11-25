@@ -3,7 +3,7 @@ seed: 7
 device: cpu
 updates: 2
 rollout_steps: 8
-rollout_workers: 1
+rollout_workers: 4
 episodes_per_worker: 1
 learning_rate: 0.0003
 ppo_clip: 0.2
@@ -16,6 +16,9 @@ image_channels: 1
 action_dim: 6
 global_dim: 16
 checkpoint_interval: 1
+# Real-mode checkpoints are saved after each 50 completed episodes.
+checkpoint_episodes: 50
+wandb_enabled: true
 run_dir: artifacts/synthetic-development
 openroad_enabled: false
 openroad_executable: openroad

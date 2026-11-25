@@ -20,10 +20,10 @@ def test_openroad_config_pins_orfs_and_official_gcd_paths():
 
 def test_linux_setup_does_not_install_or_require_verilator():
     text = (ROOT / "scripts/setup_linux.sh").read_text(encoding="utf-8")
-    assert "sudo" in text  # documented administrator commands only
-    assert "apt-get install" in text
+    assert "uv sync" not in text
+    assert "apt-get install" not in text
     assert "verilator" not in text.lower()
-    assert "does not run sudo" in text
+    assert "does not install packages" in text
 
 
 def test_orfs_verification_script_is_pinned_and_non_vendoring():

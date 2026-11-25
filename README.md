@@ -21,6 +21,35 @@ metrics and events, model checkpoints, failure logs, and generated GDSII files
 under `artifacts/<run-id>/`. The on-policy rollout buffer is an in-memory
 training component and is not a historical data store.
 
+## Real-training telemetry
+
+Real training uses W&B online by default with project `MAPPO-EDA`, run name
+`gcd-nangate45-mappo-4env`, and group `real-openroad-training`. The SDK uses
+its existing local authentication; credentials must not be placed in project
+configuration. W&B is initialized only in the training process. The optional
+`telemetry` dependency group declares `wandb`, `psutil`, and `nvidia-ml-py`;
+the existing Python environment is not modified by the training script. If
+the W&B SDK is absent, real training fails with an explicit error. Set
+`wandb_enabled: false` only when online tracking is intentionally disabled.
+
+The run records stage rewards and PPO diagnostics, available system readings,
+and physical metrics actually emitted by the configured OpenROAD extraction
+script. Missing power, congestion, DRC, or other measurements are omitted, not
+estimated. GPU utilization is included when NVML is available and the CUDA
+device UUID can be matched. `baseline_metrics` and `reward_directions` in the
+experiment JSON enable per-metric baseline-relative improvements; each baseline
+value must come from a comparable real default flow. Completed episodes are
+counted across updates, with a checkpoint after crossing each 50-episode
+boundary (at the next completed optimization update). The W&B run ID is stored
+in the checkpoint and a resumed run must reconnect to that same ID.
+
+To retain a best GDSII, the experiment must specify `gds_filename` relative
+to each episode's isolated working directory and a `best_metric` with a
+corresponding direction in `reward_directions`. The final stage must emit both
+that metric and `drc_violations`; only completed episodes reporting zero DRC
+violations and an existing, nonempty GDSII file are eligible. The current GCD
+stage-action integration and its full metric extraction remain unverified.
+
 No data flywheel infrastructure is included: there is no persistent trajectory
 database, offline RL, or historical dataset manager.
 

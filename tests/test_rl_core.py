@@ -1,6 +1,7 @@
 """Synthetic RL-core tests; no OpenROAD metrics or trajectories are used."""
 
 import torch
+import pytest
 
 from mappo_eda.rl.buffer import OnPolicyRolloutBuffer
 from mappo_eda.rl.encoders import CNNEncoder, GraphEncoder, MLPEncoder
@@ -56,7 +57,9 @@ def test_trainer_can_backpropagate_through_actor_and_critic_on_cpu():
 
 def test_cuda_path_when_available():
     if not torch.cuda.is_available():
-        return
+        pytest.skip("CUDA is unavailable in this session")
     device = torch.device("cuda")
     encoder = MLPEncoder(3, 8).to(device)
-    assert encoder(torch.randn(2, 3, device=device)).device == device
+    result_device = encoder(torch.randn(2, 3, device=device)).device
+    assert result_device.type == "cuda"
+    assert result_device.index == torch.cuda.current_device()

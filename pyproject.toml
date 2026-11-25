@@ -9,6 +9,9 @@ dependencies = [
   "torch>=2.4",
 ]
 
+[project.optional-dependencies]
+telemetry = ["wandb>=0.17", "psutil>=5.9", "nvidia-ml-py>=12"]
+
 [dependency-groups]
 dev = [
   "pytest>=8.0",

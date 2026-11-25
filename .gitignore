@@ -28,3 +28,4 @@ results/
 .DS_Store
 .idea/
 .vscode/
+/external/

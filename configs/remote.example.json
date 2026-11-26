@@ -1,0 +1,8 @@
+{
+  "host": "your-ssh-alias-or-user@desktop",
+  "remote_repo": "/absolute/path/to/MAPPO-EDA",
+  "run_dir": "artifacts/your-run-name",
+  "remote_python": "python3",
+  "download_dir": "~/Downloads/MAPPO-EDA",
+  "layout_app": "klayout"
+}

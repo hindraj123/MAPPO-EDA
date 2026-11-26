@@ -66,6 +66,10 @@ workstation executes and records the complete RTL-to-GDSII flow.
 
 ## Commands
 
+For a Mac terminal viewer and evaluated GDS downloads from the Linux desktop,
+see [Mac remote setup](docs/mac-remote.md). Connection settings stay in an ignored
+local config; a portable example is provided in `configs/remote.example.json`.
+
 ```bash
 uv sync --dev
 ./scripts/smoke_test.sh

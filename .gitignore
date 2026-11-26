@@ -29,3 +29,4 @@ results/
 .idea/
 .vscode/
 /external/
+/configs/remote.local.json
